@@ -1,8 +1,6 @@
 .env
-*.json
-!package.json
-!pyproject.toml
-client_secret_*
+client_secret_*.json
+document-analyzer-*.json
 data/
 __pycache__/
 *.pyc
