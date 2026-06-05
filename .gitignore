@@ -1,0 +1,14 @@
+.env
+*.json
+!package.json
+!pyproject.toml
+client_secret_*
+data/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+tests/sample.pdf
+.ruff_cache/

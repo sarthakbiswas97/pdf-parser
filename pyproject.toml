@@ -1,0 +1,40 @@
+[project]
+name = "pdf-parser"
+version = "0.1.0"
+description = "Streaming PDF parser with intelligent routing between native text extraction and OCR"
+requires-python = ">=3.11"
+dependencies = [
+    "pdfplumber>=0.11.0",
+    "pytesseract>=0.3.10",
+    "Pillow>=10.0.0",
+    "aiohttp>=3.9.0",
+    "redis[hiredis]>=5.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0.0",
+    "google-auth>=2.0.0",
+    "beautifulsoup4>=4.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "reportlab>=4.0.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+pdf-parser = "src.cli:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]

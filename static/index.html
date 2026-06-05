@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocParser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #141414;
+    --surface: #1e1e1e;
+    --surface-2: #262626;
+    --surface-3: #2e2e2e;
+    --border: rgba(255,255,255,0.08);
+    --border-active: rgba(255,255,255,0.16);
+    --text: #fafafa;
+    --text-2: #d4d4d4;
+    --text-muted: #a3a3a3;
+    --text-faint: #737373;
+    --green: #4ade80;
+    --green-bg: rgba(74,222,128,0.08);
+    --green-border: rgba(74,222,128,0.2);
+    --amber: #fbbf24;
+    --amber-bg: rgba(251,191,36,0.08);
+    --red: #f87171;
+    --sans: 'Inter', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+    --r: 10px;
+    --r-sm: 8px;
+    --r-lg: 14px;
+    --r-full: 9999px;
+  }
+
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--sans);
+    min-height: 100vh; font-size: 14px; line-height: 1.6;
+    display: flex; flex-direction: column;
+  }
+
+  /* ---- NAVBAR ---- */
+  .nav {
+    padding: 14px 24px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--border); background: var(--bg);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
+  .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-faint); }
+  .nav-doc { font-size: 13px; color: var(--text-muted); display: none; align-items: center; gap: 8px; }
+  .nav-doc.on { display: flex; }
+  .nav-check {
+    width: 16px; height: 16px; border-radius: 50%; background: var(--green-bg);
+    border: 1px solid var(--green-border); display: flex; align-items: center;
+    justify-content: center; color: var(--green); flex-shrink: 0;
+  }
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .nav-status { font-size: 12px; font-family: var(--mono); color: var(--text-faint); display: none; }
+  .nav-status.on { display: block; }
+  .nav-btn {
+    padding: 6px 14px; border-radius: var(--r-full); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); font-size: 12px;
+    font-family: var(--sans); cursor: pointer; display: none; transition: all 0.15s;
+  }
+  .nav-btn:hover { border-color: var(--border-active); color: var(--text); }
+  .nav-btn.on { display: block; }
+
+  /* ---- HERO ---- */
+  .hero {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 60px 24px 40px; text-align: center;
+  }
+  .hero.off { display: none; }
+  .hero h1 {
+    font-size: 32px; font-weight: 700; letter-spacing: -0.03em;
+    color: var(--text); margin-bottom: 10px; line-height: 1.2;
+  }
+  .hero > p { font-size: 15px; color: var(--text-muted); max-width: 400px; margin-bottom: 32px; }
+
+  .upload-bar {
+    width: 100%; max-width: 480px; display: flex; align-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 6px 6px 6px 16px;
+    transition: border-color 0.2s; position: relative; cursor: pointer;
+  }
+  .upload-bar:hover, .upload-bar.dragover { border-color: var(--border-active); }
+  .upload-bar.has-file { border-color: var(--green-border); }
+  .upload-bar-text {
+    flex: 1; font-size: 14px; color: var(--text-muted); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+  }
+  .upload-bar-text:hover { color: var(--text); }
+  .upload-bar.has-file .upload-bar-text { color: var(--text); }
+  .upload-bar input[type="file"] {
+    display: none;
+  }
+  .upload-bar-btn {
+    padding: 8px 20px; border-radius: var(--r); border: none; background: var(--text);
+    color: var(--bg); font-family: var(--sans); font-size: 13px; font-weight: 600;
+    cursor: pointer; flex-shrink: 0; transition: opacity 0.15s;
+  }
+  .upload-bar-btn:hover { opacity: 0.85; }
+  .upload-bar-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+  .caps { display: flex; gap: 8px; margin-top: 24px; flex-wrap: wrap; justify-content: center; }
+  .cap {
+    padding: 6px 14px; border-radius: var(--r-full); font-size: 12px;
+    color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  }
+  .hero-foot { margin-top: 20px; font-size: 12px; color: var(--text-faint); }
+
+  /* ---- MAIN ---- */
+  .main { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+  .main.on { display: flex; }
+
+  .progress-strip { height: 2px; background: var(--surface-2); overflow: hidden; flex-shrink: 0; }
+  .progress-strip.off { display: none; }
+  .pfill { height: 100%; background: var(--text-muted); width: 0%; transition: width 0.3s; }
+  .pfill.ind { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+  @keyframes slide { 0%{transform:translateX(-100%)} 100%{transform:translateX(400%)} }
+
+  /* scrollable content area */
+  .content { flex: 1; overflow-y: auto; padding: 24px; }
+  .content::-webkit-scrollbar { width: 6px; }
+  .content::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+
+  /* ---- STREAMING STATE (shown during parse) ---- */
+  .stream-status {
+    display: flex; align-items: center; gap: 12px; padding: 16px 0; color: var(--text-muted);
+    font-family: var(--mono); font-size: 13px;
+  }
+  .stream-status .spinner {
+    width: 16px; height: 16px; border: 2px solid var(--text-faint);
+    border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .stream-counts span { margin-right: 12px; }
+  .stream-counts .sc-n { color: var(--green); }
+  .stream-counts .sc-o { color: var(--amber); }
+
+  /* ---- RESULTS (shown after analysis) ---- */
+  .results { display: none; }
+  .results.on { display: block; animation: fadeIn 0.25s; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+  /* summary card */
+  .summary-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 20px 22px; margin-bottom: 20px;
+  }
+  .summary-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .doc-badge {
+    padding: 5px 12px; border-radius: var(--r-full); font-family: var(--mono);
+    font-size: 12px; font-weight: 600; background: var(--green-bg);
+    border: 1px solid var(--green-border); color: var(--green);
+  }
+  .doc-conf { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .summary-body { font-size: 15px; line-height: 1.8; color: var(--text-2); }
+
+  /* key fields row */
+  .key-fields {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px; margin-bottom: 20px;
+  }
+  .kf {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 12px 14px;
+  }
+  .kf-label {
+    font-family: var(--mono); font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text-faint); margin-bottom: 4px;
+  }
+  .kf-value { font-size: 14px; font-weight: 500; color: var(--text); word-break: break-word; }
+  .kf-value .null { color: var(--text-faint); font-style: italic; font-weight: 400; }
+
+  /* all fields section */
+  .all-fields-toggle {
+    display: flex; align-items: center; gap: 8px; padding: 12px 0; cursor: pointer;
+    color: var(--text-muted); font-size: 13px; font-weight: 500; border: none; background: none;
+    font-family: var(--sans); width: 100%; transition: color 0.15s;
+  }
+  .all-fields-toggle:hover { color: var(--text); }
+  .all-fields-toggle .aft-chev { transition: transform 0.2s; }
+  .all-fields-toggle.open .aft-chev { transform: rotate(180deg); }
+  .all-fields-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+  .all-fields-body.open { max-height: 5000px; }
+
+  .fld-list { display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; }
+  .fld {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 12px 16px;
+  }
+  .fld.low { border-color: rgba(251,191,36,0.25); background: var(--amber-bg); }
+  .fld-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .fld-name {
+    font-family: var(--mono); font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text-muted);
+  }
+  .fld-conf { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .fld-conf.low { color: var(--amber); }
+  .fld-val { font-size: 14px; color: var(--text); line-height: 1.6; }
+  .fld-val .null { color: var(--text-faint); font-style: italic; }
+  .fld-val pre {
+    font-family: var(--mono); font-size: 11px; background: var(--surface-2);
+    padding: 10px; border-radius: var(--r-sm); overflow-x: auto; margin-top: 4px;
+    color: var(--text-2); line-height: 1.6; border: 1px solid var(--border);
+  }
+
+  /* actions row */
+  .actions {
+    display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+    margin-top: 8px; flex-wrap: wrap;
+  }
+  .act-btn {
+    padding: 8px 16px; border-radius: var(--r-full); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); font-size: 12px;
+    font-family: var(--sans); cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .act-btn:hover { border-color: var(--border-active); color: var(--text); }
+
+  /* analyzing state */
+  .analyzing {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 60px 0; color: var(--text-faint); font-size: 13px; gap: 12px;
+  }
+
+  /* ---- PAGES DRAWER ---- */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200;
+    display: none; animation: fadeIn 0.15s;
+  }
+  .drawer-overlay.on { display: block; }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 90vw);
+    background: var(--bg); border-left: 1px solid var(--border); z-index: 201;
+    display: flex; flex-direction: column; transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+  .drawer.on { transform: translateX(0); }
+  .drawer-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .drawer-title { font-size: 14px; font-weight: 600; }
+  .drawer-close {
+    width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .drawer-close:hover { border-color: var(--border-active); color: var(--text); }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .drawer-body::-webkit-scrollbar { width: 5px; }
+  .drawer-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+
+  .pg {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    overflow: hidden; cursor: pointer; transition: border-color 0.15s; margin-bottom: 4px;
+  }
+  .pg:hover { border-color: var(--border-active); }
+  .pg.open { border-color: var(--text-faint); }
+  .pg-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
+  .pg-num { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .pg-badge {
+    font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase;
+    padding: 2px 8px; border-radius: var(--r-full);
+  }
+  .pg-badge.native { color: var(--green); background: var(--green-bg); }
+  .pg-badge.ocr { color: var(--amber); background: var(--amber-bg); }
+  .pg-conf { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .pg-preview {
+    font-size: 11px; color: var(--text-faint); margin-left: auto; max-width: 160px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pg.open .pg-preview { display: none; }
+  .pg-chev { color: var(--text-faint); opacity: 0.4; transition: transform 0.2s; flex-shrink: 0; }
+  .pg.open .pg-chev { transform: rotate(180deg); opacity: 0.7; }
+  .pg-body { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+  .pg.open .pg-body { max-height: 2000px; }
+  .pg-body-inner { padding: 0 14px 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .pg-content { display: flex; gap: 12px; }
+  .pg-thumb {
+    flex-shrink: 0; width: 120px; border-radius: var(--r-sm);
+    border: 1px solid var(--border); overflow: hidden; background: var(--surface-2);
+  }
+  .pg-thumb img { width: 100%; display: block; }
+  .pg-text {
+    flex: 1; font-family: var(--mono); font-size: 11px; line-height: 1.7; color: var(--text-2);
+    white-space: pre-wrap; word-break: break-word; max-height: 250px; overflow-y: auto;
+    background: var(--surface-2); padding: 10px; border-radius: var(--r-sm);
+  }
+
+  /* ---- CHAT DOCK ---- */
+  .chat-dock {
+    padding: 12px 24px 16px; border-top: 1px solid var(--border);
+    background: var(--bg); flex-shrink: 0; display: none;
+  }
+  .chat-dock.on { display: block; }
+  .chat-msgs {
+    display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;
+    max-height: 200px; overflow-y: auto;
+  }
+  .chat-msgs:empty { display: none; }
+  .chat-msgs::-webkit-scrollbar { width: 5px; }
+  .chat-msgs::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+  .cmsg {
+    padding: 10px 14px; border-radius: var(--r-lg); font-size: 13px;
+    line-height: 1.7; max-width: 80%;
+  }
+  .cmsg.u { align-self: flex-end; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .cmsg.b { align-self: flex-start; background: var(--surface); color: var(--text-2); border: 1px solid var(--border); }
+  .chat-row { display: flex; gap: 8px; }
+  .chat-in {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 10px 14px; font-family: var(--sans);
+    font-size: 13px; color: var(--text); outline: none; transition: border-color 0.2s;
+  }
+  .chat-in:focus { border-color: var(--border-active); }
+  .chat-in::placeholder { color: var(--text-faint); }
+  .chat-go {
+    width: 38px; height: 38px; border-radius: var(--r); border: none;
+    background: var(--text); color: var(--bg); cursor: pointer; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .chat-go:hover { opacity: 0.85; }
+  .chat-go:disabled { opacity: 0.2; cursor: not-allowed; }
+
+  .cmsg-meta {
+    margin-top: 6px; font-size: 10px; font-family: var(--mono); color: var(--text-faint);
+  }
+  .cmsg-source {
+    padding: 2px 6px; border-radius: var(--r-full); background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+  }
+  .cmsg-citations {
+    margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .cmsg-cite {
+    font-size: 11px; color: var(--text-faint); line-height: 1.5;
+  }
+  .cite-idx {
+    font-family: var(--mono); font-weight: 600; color: var(--text-muted); margin-right: 4px;
+  }
+  .cite-text { color: var(--text-muted); }
+
+  /* ---- SETTINGS DRAWER ---- */
+  .set-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200;
+    display: none; animation: fadeIn 0.15s;
+  }
+  .set-overlay.on { display: block; }
+  .set-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 90vw);
+    background: var(--bg); border-left: 1px solid var(--border); z-index: 201;
+    display: flex; flex-direction: column; transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+  .set-panel.on { transform: translateX(0); }
+  .set-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .set-title { font-size: 14px; font-weight: 600; }
+  .set-close {
+    width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .set-close:hover { border-color: var(--border-active); color: var(--text); }
+  .set-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .set-body::-webkit-scrollbar { width: 5px; }
+  .set-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+
+  .set-section { margin-bottom: 24px; }
+  .set-section-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;
+  }
+  .set-field { margin-bottom: 10px; }
+  .set-label { font-size: 12px; color: var(--text-faint); margin-bottom: 4px; }
+  .set-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-sm); padding: 8px 12px; font-family: var(--mono);
+    font-size: 12px; color: var(--text); outline: none;
+  }
+  .set-input:focus { border-color: var(--border-active); }
+  .set-input::placeholder { color: var(--text-faint); }
+
+  .set-toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0;
+  }
+  .set-toggle-label { font-size: 13px; color: var(--text-2); }
+  .toggle {
+    width: 36px; height: 20px; border-radius: 10px; background: var(--surface-3);
+    border: 1px solid var(--border); cursor: pointer; position: relative;
+    transition: background 0.2s;
+  }
+  .toggle.on { background: var(--green); border-color: var(--green); }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px; border-radius: 50%; background: var(--text);
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(16px); }
+
+  .set-save {
+    width: 100%; padding: 10px; border: none; border-radius: var(--r);
+    background: var(--text); color: var(--bg); font-family: var(--sans);
+    font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 8px;
+  }
+  .set-save:hover { opacity: 0.85; }
+  .set-test {
+    width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: var(--r);
+    background: transparent; color: var(--text-muted); font-size: 12px;
+    cursor: pointer; margin-top: 6px;
+  }
+  .set-test:hover { border-color: var(--border-active); color: var(--text); }
+  .set-status {
+    font-size: 11px; font-family: var(--mono); margin-top: 6px;
+    color: var(--green); min-height: 16px;
+  }
+  .set-status.err { color: var(--red); }
+
+  /* ---- DRIVE BROWSER ---- */
+  .drive-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200;
+    display: none; animation: fadeIn 0.15s;
+  }
+  .drive-overlay.on { display: block; }
+  .drive-panel {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.96);
+    width: min(540px, 92vw); max-height: 80vh; background: var(--bg);
+    border: 1px solid var(--border); border-radius: var(--r-lg); z-index: 201;
+    display: flex; flex-direction: column; opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .drive-panel.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .drive-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .drive-head-title { font-size: 14px; font-weight: 600; flex: 1; }
+  .drive-close {
+    width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .drive-close:hover { border-color: var(--border-active); color: var(--text); }
+
+  .drive-breadcrumb {
+    padding: 10px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-faint);
+    flex-wrap: wrap;
+  }
+  .drive-crumb {
+    cursor: pointer; color: var(--text-muted); background: none; border: none;
+    font-family: var(--sans); font-size: 12px; padding: 2px 4px; border-radius: 4px;
+  }
+  .drive-crumb:hover { color: var(--text); background: var(--surface); }
+  .drive-crumb.current { color: var(--text); cursor: default; }
+  .drive-crumb.current:hover { background: transparent; }
+
+  .drive-list {
+    flex: 1; overflow-y: auto; padding: 8px;
+  }
+  .drive-list::-webkit-scrollbar { width: 5px; }
+  .drive-list::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+  .drive-empty { padding: 40px 20px; text-align: center; color: var(--text-faint); font-size: 13px; }
+  .drive-loading { padding: 40px; text-align: center; color: var(--text-faint); font-size: 13px; }
+
+  .drive-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-radius: var(--r); cursor: pointer; transition: background 0.12s;
+  }
+  .drive-item:hover { background: var(--surface); }
+  .drive-item-icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--text-faint); }
+  .drive-item-name { font-size: 13px; color: var(--text-2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drive-item-meta { font-size: 11px; color: var(--text-faint); font-family: var(--mono); }
+  .drive-item.folder .drive-item-icon { color: var(--text-muted); }
+  .drive-item.pdf .drive-item-icon { color: var(--amber); }
+  .drive-item.pdf:hover { background: var(--surface-2); }
+
+  .drive-connect {
+    padding: 40px 20px; text-align: center;
+  }
+  .drive-connect p { font-size: 13px; color: var(--text-faint); margin-bottom: 14px; }
+
+  /* upload bar drive button */
+  .upload-or { color: var(--text-faint); font-size: 12px; margin: 12px 0 0; }
+  .drive-btn {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
+    padding: 8px 18px; border-radius: var(--r-full); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); font-size: 13px;
+    font-family: var(--sans); cursor: pointer; transition: all 0.15s;
+  }
+  .drive-btn:hover { border-color: var(--border-active); color: var(--text); }
+
+  /* ---- HISTORY SIDEBAR ---- */
+  .hist-btn {
+    width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .hist-btn:hover { border-color: var(--border-active); color: var(--text); }
+  .hist-btn .badge-count {
+    position: absolute; top: -4px; right: -4px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--text); color: var(--bg);
+    font-size: 10px; font-weight: 600; display: flex; align-items: center;
+    justify-content: center; font-family: var(--mono);
+  }
+  .hist-wrap { position: relative; }
+
+  .hist-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200;
+    display: none; animation: fadeIn 0.15s;
+  }
+  .hist-overlay.on { display: block; }
+  .hist-panel {
+    position: fixed; top: 0; left: 0; bottom: 0; width: min(340px, 85vw);
+    background: var(--bg); border-right: 1px solid var(--border); z-index: 201;
+    display: flex; flex-direction: column; transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  .hist-panel.on { transform: translateX(0); }
+  .hist-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .hist-title { font-size: 14px; font-weight: 600; }
+  .hist-close {
+    width: 28px; height: 28px; border-radius: var(--r-sm); border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hist-close:hover { border-color: var(--border-active); color: var(--text); }
+  .hist-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .hist-list::-webkit-scrollbar { width: 5px; }
+  .hist-list::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+  .hist-empty { padding: 40px 20px; text-align: center; color: var(--text-faint); font-size: 13px; }
+
+  .hist-item {
+    padding: 10px 14px; border-radius: var(--r); cursor: pointer;
+    transition: background 0.15s; display: flex; flex-direction: column; gap: 4px;
+  }
+  .hist-item:hover { background: var(--surface); }
+  .hist-item.active { background: var(--surface-2); border: 1px solid var(--border); }
+  .hist-item-name {
+    font-size: 13px; font-weight: 500; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .hist-item-meta {
+    display: flex; gap: 8px; font-size: 11px; color: var(--text-faint);
+    font-family: var(--mono); align-items: center;
+  }
+  .hist-item-type {
+    padding: 1px 6px; border-radius: var(--r-full); font-size: 10px;
+    font-weight: 600; background: var(--green-bg); color: var(--green);
+    border: 1px solid var(--green-border);
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="hist-wrap">
+    <button class="hist-btn" id="histBtn" title="Document history">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+    </button>
+  </div>
+  <span class="nav-logo">DocParser</span>
+  <span class="nav-dot"></span>
+  <div class="nav-doc" id="navDoc">
+    <div class="nav-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+    <span id="navFile"></span>
+  </div>
+  <div class="nav-right">
+    <span class="nav-status" id="navStat"></span>
+    <button class="nav-btn" id="newBtn">New document</button>
+    <button class="hist-btn" id="setBtn" title="Settings" style="margin-left:4px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="hero">
+  <h1>Turn documents into<br>structured intelligence</h1>
+  <p>Upload a PDF to classify, extract fields, summarize, and chat with your document.</p>
+  <div class="upload-bar" id="uploadBar">
+    <span class="upload-bar-text" id="uploadText">Drop a PDF here or click to browse</span>
+    <button class="upload-bar-btn" id="goBtn" disabled>Parse</button>
+    <input type="file" id="fileInput" accept=".pdf,application/pdf">
+  </div>
+  <div class="upload-or">or</div>
+  <button class="drive-btn" id="driveImportBtn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 19.5h20L12 2z"/></svg>
+    Import from Google Drive
+  </button>
+
+  <div class="caps">
+    <span class="cap">Auto-classify</span>
+    <span class="cap">Extract fields</span>
+    <span class="cap">Summarize</span>
+    <span class="cap">Chat with PDF</span>
+    <span class="cap">Export</span>
+  </div>
+  <div class="hero-foot">Invoices, resumes, contracts, bank statements, reports, and more.</div>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="main">
+  <div class="progress-strip" id="pstrip"><div class="pfill" id="pfill"></div></div>
+
+  <div class="content" id="content">
+    <!-- streaming state -->
+    <div id="streamState">
+      <div class="stream-status">
+        <div class="spinner"></div>
+        <span id="streamMsg">Parsing pages...</span>
+        <div class="stream-counts">
+          <span class="sc-n" id="scN">0 native</span>
+          <span class="sc-o" id="scO">0 ocr</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- analyzing state -->
+    <div id="analyzeState" style="display:none">
+      <div class="analyzing">
+        <div class="spinner"></div>
+        <span>Analyzing document...</span>
+      </div>
+    </div>
+
+    <!-- results -->
+    <div class="results" id="results">
+      <!-- summary card -->
+      <div class="summary-card" id="summaryCard">
+        <div class="summary-head">
+          <span class="doc-badge" id="docBadge"></span>
+          <span class="doc-conf" id="docConf"></span>
+        </div>
+        <div class="summary-body" id="summaryBody"></div>
+      </div>
+
+      <!-- key fields -->
+      <div class="key-fields" id="keyFields"></div>
+
+      <!-- all fields expandable -->
+      <button class="all-fields-toggle" id="aftToggle">
+        <svg class="aft-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        <span>All extracted fields</span>
+      </button>
+      <div class="all-fields-body" id="aftBody">
+        <div class="fld-list" id="fldList"></div>
+      </div>
+
+      <!-- actions -->
+      <div class="actions">
+        <button class="act-btn" id="expJson">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+          Export JSON
+        </button>
+        <button class="act-btn" id="expCsv">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+          Export CSV
+        </button>
+        <button class="act-btn" id="copyBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy JSON
+        </button>
+        <button class="act-btn" id="pagesBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+          <span id="pagesBtnText">View pages</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- chat dock -->
+  <div class="chat-dock" id="chatDock">
+    <div class="chat-msgs" id="chatMsgs"></div>
+    <div class="chat-row">
+      <input class="chat-in" id="chatIn" placeholder="Ask about this document..." />
+      <button class="chat-go" id="chatGo" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY SIDEBAR -->
+<div class="hist-overlay" id="histBg"></div>
+<div class="hist-panel" id="histPanel">
+  <div class="hist-head">
+    <span class="hist-title">History</span>
+    <button class="hist-close" id="histClose">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="hist-list" id="histList">
+    <div class="hist-empty" id="histEmpty">No documents yet.</div>
+  </div>
+</div>
+
+<!-- PAGES DRAWER -->
+<div class="drawer-overlay" id="drawerBg"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <span class="drawer-title" id="drawerTitle">Pages</span>
+    <button class="drawer-close" id="drawerClose">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<!-- DRIVE BROWSER -->
+<div class="drive-overlay" id="driveOverlay"></div>
+<div class="drive-panel" id="drivePanel">
+  <div class="drive-head">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 19.5h20L12 2z"/></svg>
+    <span class="drive-head-title">Google Drive</span>
+    <button class="drive-close" id="driveClose">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drive-breadcrumb" id="driveBreadcrumb"></div>
+  <div class="drive-list" id="driveList">
+    <div class="drive-loading">Loading...</div>
+  </div>
+</div>
+
+<!-- SETTINGS DRAWER -->
+<div class="set-overlay" id="setOverlay"></div>
+<div class="set-panel" id="setPanel">
+  <div class="set-head">
+    <span class="set-title">Integrations</span>
+    <button class="set-close" id="setClose">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="set-body">
+    <div class="set-section">
+      <div class="set-section-title">Webhook</div>
+      <div class="set-field">
+        <div class="set-label">URL</div>
+        <input class="set-input" id="setWebhookUrl" placeholder="https://your-app.com/webhook" />
+      </div>
+      <div class="set-toggle-row">
+        <span class="set-toggle-label">Enabled</span>
+        <div class="toggle" id="setWebhookOn"></div>
+      </div>
+      <button class="set-test" id="setWebhookTest">Send test webhook</button>
+      <div class="set-status" id="setWebhookStatus"></div>
+    </div>
+
+    <div class="set-section">
+      <div class="set-section-title">Google Account</div>
+      <div id="googleNotConnected">
+        <button class="set-save" id="googleConnectBtn" style="background:var(--surface);color:var(--text);border:1px solid var(--border)">
+          Connect Google Account
+        </button>
+        <div class="set-label" style="margin-top:8px">Connects Drive + Sheets access via OAuth</div>
+      </div>
+      <div id="googleConnected" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green)"></div>
+          <span style="font-size:13px;color:var(--text-2)">Google connected</span>
+          <button class="set-test" id="googleDisconnect" style="margin:0;width:auto;padding:4px 12px;margin-left:auto">Disconnect</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="set-section" id="sheetsSection" style="display:none">
+      <div class="set-section-title">Google Sheets</div>
+      <div class="set-field">
+        <div class="set-label">Export to</div>
+        <select class="set-input" id="setSheetsSelect" style="cursor:pointer">
+          <option value="">Select a spreadsheet...</option>
+        </select>
+      </div>
+      <div class="set-toggle-row">
+        <span class="set-toggle-label">Auto-append rows after parsing</span>
+        <div class="toggle" id="setSheetsOn"></div>
+      </div>
+      <div class="set-status" id="setSheetsStatus"></div>
+    </div>
+
+    <div class="set-section" id="driveSection" style="display:none">
+      <div class="set-section-title">Google Drive</div>
+      <div class="set-field">
+        <div class="set-label">Watch folder</div>
+        <select class="set-input" id="setDriveSelect" style="cursor:pointer">
+          <option value="">Select a folder...</option>
+        </select>
+      </div>
+      <div class="set-toggle-row">
+        <span class="set-toggle-label">Enable folder sync</span>
+        <div class="toggle" id="setDriveOn"></div>
+      </div>
+      <button class="set-test" id="setDriveSync">Sync now</button>
+      <div class="set-status" id="setDriveStatus"></div>
+    </div>
+
+    <button class="set-save" id="setSave">Save settings</button>
+    <div class="set-status" id="setSaveStatus"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let selectedFile = null, allPages = [], fullText = '', analysisData = null;
+let docHistory = [], activeDocId = null;
+
+// ---- File ----
+const fileInput = $('fileInput'), goBtn = $('goBtn'), uploadBar = $('uploadBar');
+
+// Only the text label opens the file picker -- nothing else
+$('uploadText').addEventListener('click', (e) => {
+  e.stopPropagation();
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', e => { if (e.target.files[0]) pick(e.target.files[0]); });
+uploadBar.addEventListener('dragover', e => { e.preventDefault(); uploadBar.classList.add('dragover'); });
+uploadBar.addEventListener('dragleave', () => uploadBar.classList.remove('dragover'));
+uploadBar.addEventListener('drop', e => {
+  e.preventDefault(); uploadBar.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && (f.type === 'application/pdf' || f.name.endsWith('.pdf'))) pick(f);
+});
+
+function pick(f) {
+  selectedFile = f;
+  $('uploadText').textContent = f.name;
+  uploadBar.classList.add('has-file');
+  goBtn.disabled = false;
+}
+goBtn.addEventListener('click', run);
+
+// ---- New document ----
+$('newBtn').addEventListener('click', () => {
+  saveCurrentToHistory();
+  resetToHero();
+});
+
+function resetToHero() {
+  selectedFile = null; allPages = []; fullText = ''; analysisData = null; activeDocId = null;
+  $('hero').classList.remove('off');
+  $('main').classList.remove('on');
+  $('chatDock').classList.remove('on');
+  $('navDoc').classList.remove('on');
+  $('navStat').classList.remove('on');
+  $('newBtn').classList.remove('on');
+  uploadBar.classList.remove('has-file');
+  $('uploadText').textContent = 'Drop a PDF here or click to browse';
+  fileInput.value = '';
+  goBtn.disabled = true;
+  $('chatMsgs').innerHTML = '';
+  $('drawerBody').innerHTML = '';
+}
+
+// ---- History sidebar ----
+$('histBtn').addEventListener('click', () => {
+  $('histBg').classList.add('on');
+  setTimeout(() => $('histPanel').classList.add('on'), 10);
+});
+$('histClose').addEventListener('click', closeHist);
+$('histBg').addEventListener('click', closeHist);
+function closeHist() {
+  $('histPanel').classList.remove('on');
+  setTimeout(() => $('histBg').classList.remove('on'), 250);
+}
+
+function saveCurrentToHistory() {
+  if (!allPages.length) return;
+  // If we're viewing a history item, update it
+  if (activeDocId) {
+    const existing = docHistory.find(h => h.id === activeDocId);
+    if (existing) return; // already saved
+  }
+  const doc = {
+    id: Date.now().toString(),
+    name: selectedFile?.name || 'document.pdf',
+    pages: allPages,
+    fullText,
+    analysis: analysisData,
+    drawerHtml: $('drawerBody').innerHTML,
+    timestamp: new Date(),
+    pageCount: allPages.length,
+  };
+  docHistory.unshift(doc);
+  activeDocId = doc.id;
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = $('histList');
+  $('histEmpty').style.display = docHistory.length ? 'none' : 'block';
+
+  // Remove old items (keep empty msg)
+  list.querySelectorAll('.hist-item').forEach(el => el.remove());
+
+  for (const doc of docHistory) {
+    const el = document.createElement('div');
+    el.className = 'hist-item' + (doc.id === activeDocId ? ' active' : '');
+    const docType = doc.analysis?.doc_type_label || 'Processing...';
+    const time = doc.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    el.innerHTML = `
+      <div class="hist-item-name">${esc(doc.name)}</div>
+      <div class="hist-item-meta">
+        <span class="hist-item-type">${docType}</span>
+        <span>${doc.pageCount} pages</span>
+        <span>${time}</span>
+      </div>
+    `;
+    el.addEventListener('click', () => loadFromHistory(doc.id));
+    list.appendChild(el);
+  }
+}
+
+function loadFromHistory(id) {
+  // Save current first if it has data
+  if (allPages.length && activeDocId !== id) {
+    saveCurrentToHistory();
+  }
+
+  const doc = docHistory.find(h => h.id === id);
+  if (!doc) return;
+
+  activeDocId = doc.id;
+  allPages = doc.pages;
+  fullText = doc.fullText;
+  analysisData = doc.analysis;
+
+  // Show main view
+  $('hero').classList.add('off');
+  $('main').classList.add('on');
+  $('chatDock').classList.add('on');
+  $('chatGo').disabled = false;
+  $('chatMsgs').innerHTML = '';
+  $('pstrip').classList.add('off');
+  $('streamState').style.display = 'none';
+  $('analyzeState').style.display = 'none';
+
+  // Navbar
+  $('navDoc').classList.add('on');
+  $('navFile').textContent = doc.name + ' -- ' + doc.pageCount + ' pages';
+  $('newBtn').classList.add('on');
+  $('navStat').classList.remove('on');
+
+  // Restore drawer pages
+  $('drawerBody').innerHTML = doc.drawerHtml || '';
+  $('pagesBtnText').textContent = `View ${doc.pageCount} pages`;
+
+  // Restore results
+  if (analysisData) {
+    showResults(analysisData);
+    $('results').classList.add('on');
+  } else {
+    $('results').classList.remove('on');
+    $('analyzeState').style.display = 'block';
+  }
+
+  renderHistory();
+  closeHist();
+}
+
+// ---- Drawer ----
+$('pagesBtn')?.addEventListener('click', () => openDrawer());
+$('drawerClose').addEventListener('click', closeDrawer);
+$('drawerBg').addEventListener('click', closeDrawer);
+function openDrawer() {
+  $('drawerBg').classList.add('on');
+  setTimeout(() => $('drawer').classList.add('on'), 10);
+}
+function closeDrawer() {
+  $('drawer').classList.remove('on');
+  setTimeout(() => $('drawerBg').classList.remove('on'), 250);
+}
+
+// ---- All fields toggle ----
+$('aftToggle').addEventListener('click', () => {
+  $('aftToggle').classList.toggle('open');
+  $('aftBody').classList.toggle('open');
+});
+
+// ---- Drawer page expand ----
+$('drawerBody').addEventListener('click', e => {
+  const pg = e.target.closest('.pg');
+  if (pg) pg.classList.toggle('open');
+});
+
+// ---- Main flow ----
+async function run() {
+  if (!selectedFile) return;
+  saveCurrentToHistory(); // preserve previous doc
+  allPages = []; fullText = ''; analysisData = null; activeDocId = null;
+  $('hero').classList.add('off');
+  $('main').classList.add('on');
+  $('chatDock').classList.add('on');
+  $('chatGo').disabled = true;
+  $('pfill').className = 'pfill ind';
+  $('streamState').style.display = 'block';
+  $('analyzeState').style.display = 'none';
+  $('results').classList.remove('on');
+  $('navStat').textContent = 'Parsing...'; $('navStat').classList.add('on');
+  $('drawerBody').innerHTML = '';
+
+  let counts = { total: 0, native: 0, ocr: 0 };
+  const t0 = performance.now();
+
+  // Phase 1: stream
+  try {
+    const form = new FormData();
+    form.append('file', selectedFile);
+    const resp = await fetch('/parse', { method: 'POST', body: form });
+    if (!resp.ok) throw new Error('Server ' + resp.status);
+
+    const reader = resp.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const ln of lines) {
+        if (!ln.trim()) continue;
+        try {
+          const pg = JSON.parse(ln);
+          allPages.push(pg); counts.total++;
+          if (pg.source === 'native') counts.native++; else counts.ocr++;
+          addPageToDrawer(pg);
+          $('streamMsg').textContent = `Page ${counts.total}`;
+          $('scN').textContent = counts.native + ' native';
+          $('scO').textContent = counts.ocr + ' ocr';
+        } catch(e) {}
+      }
+    }
+    if (buf.trim()) { try { const p = JSON.parse(buf); allPages.push(p); counts.total++; addPageToDrawer(p); } catch(e) {} }
+
+    const elapsed = ((performance.now()-t0)/1000).toFixed(1);
+    $('pfill').style.width = '100%';
+    fullText = allPages.map(p => p.text).join('\n\n');
+    $('chatGo').disabled = false;
+    $('navDoc').classList.add('on');
+    $('navFile').textContent = selectedFile.name + ' -- ' + counts.total + ' pages, ' + elapsed + 's';
+    $('newBtn').classList.add('on');
+    $('pagesBtnText').textContent = `View ${counts.total} pages`;
+
+  } catch(err) {
+    $('streamMsg').textContent = 'Error: ' + err.message;
+    $('navStat').textContent = 'Failed'; return;
+  }
+
+  // Phase 2: analyze
+  $('streamState').style.display = 'none';
+  $('analyzeState').style.display = 'block';
+  $('navStat').textContent = 'Analyzing...';
+
+  try {
+    const resp = await fetch('/analyze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ full_text: fullText, filename: selectedFile?.name || 'document.pdf' }),
+    });
+    if (!resp.ok) throw new Error('Analysis ' + resp.status);
+    analysisData = await resp.json();
+
+    $('analyzeState').style.display = 'none';
+    showResults(analysisData);
+    $('results').classList.add('on');
+    $('navStat').textContent = analysisData.doc_type_label;
+    setTimeout(() => $('navStat').classList.remove('on'), 2500);
+  } catch(err) {
+    $('analyzeState').innerHTML = '<div class="analyzing"><span>Analysis failed. You can still chat below.</span></div>';
+    $('navStat').textContent = 'Analysis failed';
+  }
+  $('pstrip').classList.add('off');
+
+  // Save to history
+  saveCurrentToHistory();
+  renderHistory();
+}
+
+// ---- Results ----
+function showResults(data) {
+  $('docBadge').textContent = data.doc_type_label;
+  $('docConf').textContent = (data.doc_type_confidence * 100).toFixed(0) + '% confidence';
+  $('summaryBody').textContent = data.summary;
+
+  // Key fields: show top 4-6 simple scalar fields
+  const keyEl = $('keyFields');
+  keyEl.innerHTML = '';
+  const entries = Object.entries(data.fields);
+  const scalars = entries.filter(([,v]) => v.value !== null && typeof v.value !== 'object' && !Array.isArray(v.value));
+  const topFields = scalars.slice(0, 6);
+
+  for (const [k, v] of topFields) {
+    keyEl.innerHTML += `<div class="kf">
+      <div class="kf-label">${k.replace(/_/g, ' ')}</div>
+      <div class="kf-value">${esc(String(v.value))}</div>
+    </div>`;
+  }
+
+  // All fields
+  const fldEl = $('fldList');
+  fldEl.innerHTML = '';
+  for (const [k, v] of entries) {
+    const c = v.confidence ?? 0, cp = (c*100).toFixed(0), lo = c < 0.8;
+    fldEl.innerHTML += `<div class="fld${lo?' low':''}">
+      <div class="fld-top"><span class="fld-name">${k.replace(/_/g,' ')}</span><span class="fld-conf${lo?' low':''}">${cp}%</span></div>
+      <div class="fld-val">${fmtVal(v.value)}</div>
+    </div>`;
+  }
+}
+
+function fmtVal(v) {
+  if (v === null || v === undefined) return '<span class="null">Not found</span>';
+  if (Array.isArray(v)) {
+    if (!v.length) return '<span class="null">Empty</span>';
+    if (typeof v[0] === 'object') return '<pre>' + esc(JSON.stringify(v, null, 2)) + '</pre>';
+    return v.map(x => esc(String(x))).join(', ');
+  }
+  if (typeof v === 'object') return '<pre>' + esc(JSON.stringify(v, null, 2)) + '</pre>';
+  return esc(String(v));
+}
+
+// ---- Pages in drawer ----
+function addPageToDrawer(pg) {
+  const el = document.createElement('div');
+  el.className = 'pg';
+  const conf = pg.confidence !== null ? (pg.confidence*100).toFixed(0) + '%' : '';
+  const preview = (pg.text||'').substring(0,80).replace(/\n/g,' ').trim() || '(empty)';
+  const thumb = pg.image ? `<div class="pg-thumb"><img src="data:image/jpeg;base64,${pg.image}"></div>` : '';
+
+  el.innerHTML = `
+    <div class="pg-head">
+      <span class="pg-num">${pg.page_number}</span>
+      <span class="pg-badge ${pg.source}">${pg.source}</span>
+      ${conf ? `<span class="pg-conf">${conf}</span>` : ''}
+      <span class="pg-preview">${esc(preview)}</span>
+      <svg class="pg-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    ${pg.error
+      ? `<div class="pg-body" style="max-height:none"><div style="padding:8px 14px;font-size:12px;color:var(--red)">${esc(pg.error)}</div></div>`
+      : `<div class="pg-body"><div class="pg-body-inner">
+          <div class="pg-content">${thumb}<div style="flex:1;min-width:0"><div class="pg-text">${esc(pg.text||'(no text)')}</div></div></div>
+        </div></div>`}`;
+  $('drawerBody').appendChild(el);
+}
+
+// ---- Export ----
+$('expJson').addEventListener('click', () => {
+  if (!analysisData) return;
+  dl(JSON.stringify(analysisData.fields,null,2), analysisData.doc_type+'_data.json','application/json');
+});
+$('expCsv').addEventListener('click', () => {
+  if (!analysisData) return;
+  let csv = 'Field,Value,Confidence\n';
+  for (const [k,v] of Object.entries(analysisData.fields)) {
+    let val = v.value; if (typeof val==='object') val=JSON.stringify(val);
+    csv += `"${k}","${String(val).replace(/"/g,'""')}","${v.confidence}"\n`;
+  }
+  dl(csv, analysisData.doc_type+'_data.csv','text/csv');
+});
+$('copyBtn').addEventListener('click', () => {
+  if (!analysisData) return;
+  navigator.clipboard.writeText(JSON.stringify(analysisData.fields,null,2));
+  $('copyBtn').querySelector('span') || ($('copyBtn').lastChild.textContent = ' Copied!');
+  setTimeout(() => $('copyBtn').lastChild.textContent = ' Copy JSON', 1500);
+});
+function dl(c,f,m) { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([c],{type:m})); a.download=f; a.click(); }
+
+// ---- Chat ----
+let chatSessionId = null;
+
+$('chatGo').addEventListener('click', sendChat);
+$('chatIn').addEventListener('keydown', e => { if (e.key==='Enter'&&!e.shiftKey) { e.preventDefault(); sendChat(); } });
+
+async function sendChat() {
+  const q = $('chatIn').value.trim();
+  if (!q || !fullText) return;
+  $('chatIn').value = '';
+  addMsg(q, 'u');
+  $('chatGo').disabled = true;
+  try {
+    const r = await fetch('/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ full_text: fullText, question: q, session_id: chatSessionId }),
+    });
+    const d = await r.json();
+    if (d.session_id) chatSessionId = d.session_id;
+    addBotMsg(d);
+  } catch(e) { addMsg('Error: ' + e.message, 'b'); }
+  $('chatGo').disabled = false;
+  $('chatIn').focus();
+}
+
+function addMsg(t, r) {
+  const el = document.createElement('div');
+  el.className = 'cmsg ' + r;
+  el.textContent = t;
+  $('chatMsgs').appendChild(el);
+  $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight;
+}
+
+function addBotMsg(data) {
+  const el = document.createElement('div');
+  el.className = 'cmsg b';
+
+  let html = esc(data.answer);
+
+  // Source badge
+  const src = data.source === 'rag' ? 'RAG' : 'LLM';
+  const conf = data.confidence !== null && data.confidence !== undefined
+    ? ` -- ${(data.confidence * 100).toFixed(0)}%` : '';
+  html += `<div class="cmsg-meta"><span class="cmsg-source">${src}${conf}</span></div>`;
+
+  // Citations
+  if (data.citations && data.citations.length > 0) {
+    html += '<div class="cmsg-citations">';
+    for (const c of data.citations) {
+      html += `<div class="cmsg-cite"><span class="cite-idx">[${c.index}]</span> <span class="cite-text">${esc(c.snippet || c.source || '')}</span></div>`;
+    }
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+  $('chatMsgs').appendChild(el);
+  $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ---- Drive browser ----
+let driveStack = [{ id: 'root', name: 'My Drive' }];
+
+$('driveImportBtn').addEventListener('click', async () => {
+  // Check if connected
+  const r = await fetch('/auth/google/status');
+  const g = await r.json();
+  if (!g.connected) {
+    // Start OAuth in popup
+    const popup = window.open('/auth/google', 'google_auth', 'width=500,height=600');
+    window.addEventListener('message', async (e) => {
+      if (e.data === 'google_connected') openDriveBrowser();
+    }, { once: true });
+    return;
+  }
+  openDriveBrowser();
+});
+
+function openDriveBrowser() {
+  driveStack = [{ id: 'root', name: 'My Drive' }];
+  $('driveOverlay').classList.add('on');
+  setTimeout(() => $('drivePanel').classList.add('on'), 10);
+  loadDriveFolder('root');
+}
+
+$('driveClose').addEventListener('click', closeDrive);
+$('driveOverlay').addEventListener('click', closeDrive);
+function closeDrive() {
+  $('drivePanel').classList.remove('on');
+  setTimeout(() => $('driveOverlay').classList.remove('on'), 200);
+}
+
+async function loadDriveFolder(folderId) {
+  const list = $('driveList');
+  list.innerHTML = '<div class="drive-loading">Loading...</div>';
+  renderBreadcrumb();
+
+  try {
+    const r = await fetch('/integrations/drive/browse?folder_id=' + encodeURIComponent(folderId));
+    if (r.status === 401) {
+      list.innerHTML = '<div class="drive-connect"><p>Connect your Google account to browse files.</p><button class="drive-btn" onclick="window.open(\'/auth/google\',\'g\',\'width=500,height=600\')">Connect Google</button></div>';
+      return;
+    }
+    const d = await r.json();
+
+    if (!d.folders.length && !d.pdfs.length) {
+      list.innerHTML = '<div class="drive-empty">No folders or PDFs here.</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+
+    // Folders
+    for (const f of d.folders) {
+      const el = document.createElement('div');
+      el.className = 'drive-item folder';
+      el.innerHTML = `
+        <svg class="drive-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        <span class="drive-item-name">${esc(f.name)}</span>
+      `;
+      el.addEventListener('click', () => {
+        driveStack.push({ id: f.id, name: f.name });
+        loadDriveFolder(f.id);
+      });
+      list.appendChild(el);
+    }
+
+    // PDFs
+    for (const f of d.pdfs) {
+      const size = f.size ? (parseInt(f.size)/1024).toFixed(0) + ' KB' : '';
+      const el = document.createElement('div');
+      el.className = 'drive-item pdf';
+      el.innerHTML = `
+        <svg class="drive-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+        <span class="drive-item-name">${esc(f.name)}</span>
+        <span class="drive-item-meta">${size}</span>
+      `;
+      el.addEventListener('click', () => parseDriveFile(f.id, f.name));
+      list.appendChild(el);
+    }
+  } catch(e) {
+    list.innerHTML = '<div class="drive-empty">Error loading files.</div>';
+  }
+}
+
+function renderBreadcrumb() {
+  const bc = $('driveBreadcrumb');
+  bc.innerHTML = '';
+  driveStack.forEach((item, i) => {
+    if (i > 0) {
+      const sep = document.createElement('span');
+      sep.textContent = '/';
+      bc.appendChild(sep);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'drive-crumb' + (i === driveStack.length - 1 ? ' current' : '');
+    btn.textContent = item.name;
+    if (i < driveStack.length - 1) {
+      btn.addEventListener('click', () => {
+        driveStack = driveStack.slice(0, i + 1);
+        loadDriveFolder(item.id);
+      });
+    }
+    bc.appendChild(btn);
+  });
+}
+
+async function parseDriveFile(fileId, fileName) {
+  closeDrive();
+
+  // Set up the same UI state as a local upload
+  selectedFile = { name: fileName };
+  allPages = []; fullText = ''; analysisData = null; activeDocId = null;
+  $('hero').classList.add('off');
+  $('main').classList.add('on');
+  $('chatDock').classList.add('on');
+  $('chatGo').disabled = true;
+  $('pfill').className = 'pfill ind';
+  $('streamState').style.display = 'block';
+  $('analyzeState').style.display = 'none';
+  $('results').classList.remove('on');
+  $('navStat').textContent = 'Downloading from Drive...'; $('navStat').classList.add('on');
+  $('drawerBody').innerHTML = '';
+  $('chatMsgs').innerHTML = '';
+
+  let counts = { total: 0, native: 0, ocr: 0 };
+  const t0 = performance.now();
+
+  // Stream parse from Drive
+  try {
+    const resp = await fetch('/integrations/drive/parse/' + fileId + '?filename=' + encodeURIComponent(fileName), { method: 'POST' });
+    if (!resp.ok) throw new Error('Server ' + resp.status);
+
+    $('streamMsg').textContent = 'Parsing...';
+    $('pfill').classList.remove('ind');
+    const reader = resp.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const ln of lines) {
+        if (!ln.trim()) continue;
+        try {
+          const pg = JSON.parse(ln);
+          allPages.push(pg); counts.total++;
+          if (pg.source === 'native') counts.native++; else counts.ocr++;
+          addPageToDrawer(pg);
+          $('streamMsg').textContent = 'Page ' + counts.total;
+          $('scN').textContent = counts.native + ' native';
+          $('scO').textContent = counts.ocr + ' ocr';
+        } catch(e) {}
+      }
+    }
+    if (buf.trim()) { try { const p = JSON.parse(buf); allPages.push(p); counts.total++; addPageToDrawer(p); } catch(e) {} }
+
+    const elapsed = ((performance.now()-t0)/1000).toFixed(1);
+    $('pfill').style.width = '100%';
+    fullText = allPages.map(p => p.text).join('\n\n');
+    $('chatGo').disabled = false;
+    $('navDoc').classList.add('on');
+    $('navFile').textContent = fileName + ' -- ' + counts.total + ' pages, ' + elapsed + 's';
+    $('newBtn').classList.add('on');
+    $('pagesBtnText').textContent = 'View ' + counts.total + ' pages';
+
+  } catch(err) {
+    $('streamMsg').textContent = 'Error: ' + err.message;
+    $('navStat').textContent = 'Failed'; return;
+  }
+
+  // Phase 2: analyze
+  $('streamState').style.display = 'none';
+  $('analyzeState').style.display = 'block';
+  $('navStat').textContent = 'Analyzing...';
+
+  try {
+    const resp = await fetch('/analyze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ full_text: fullText, filename: fileName }),
+    });
+    if (!resp.ok) throw new Error('Analysis ' + resp.status);
+    analysisData = await resp.json();
+    $('analyzeState').style.display = 'none';
+    showResults(analysisData);
+    $('results').classList.add('on');
+    $('navStat').textContent = analysisData.doc_type_label;
+    setTimeout(() => $('navStat').classList.remove('on'), 2500);
+  } catch(err) {
+    $('analyzeState').innerHTML = '<div class="analyzing"><span>Analysis failed. Chat available below.</span></div>';
+    $('navStat').textContent = 'Analysis failed';
+  }
+  $('pstrip').classList.add('off');
+  saveCurrentToHistory();
+  renderHistory();
+}
+
+// ---- Settings panel ----
+$('setBtn').addEventListener('click', async () => {
+  $('setOverlay').classList.add('on');
+  setTimeout(() => $('setPanel').classList.add('on'), 10);
+
+  // Load settings + Google status
+  try {
+    const [settingsR, googleR] = await Promise.all([
+      fetch('/settings'), fetch('/auth/google/status')
+    ]);
+    const s = await settingsR.json();
+    const g = await googleR.json();
+
+    $('setWebhookUrl').value = s.webhook_url || '';
+    setToggle('setWebhookOn', s.webhook_enabled);
+    setToggle('setSheetsOn', s.sheets_enabled);
+    setToggle('setDriveOn', s.drive_enabled);
+
+    // Google connection state
+    if (g.connected) {
+      showGoogleConnected(s);
+    } else {
+      $('googleNotConnected').style.display = 'block';
+      $('googleConnected').style.display = 'none';
+      $('sheetsSection').style.display = 'none';
+      $('driveSection').style.display = 'none';
+    }
+  } catch(e) {}
+});
+
+async function showGoogleConnected(settings) {
+  $('googleNotConnected').style.display = 'none';
+  $('googleConnected').style.display = 'block';
+  $('sheetsSection').style.display = 'block';
+  $('driveSection').style.display = 'block';
+
+  // Load Sheets list
+  try {
+    const r = await fetch('/integrations/sheets/list');
+    const d = await r.json();
+    const sel = $('setSheetsSelect');
+    sel.innerHTML = '<option value="">Select a spreadsheet...</option>';
+    for (const s of d.sheets || []) {
+      const opt = document.createElement('option');
+      opt.value = s.id; opt.textContent = s.name;
+      if (settings?.sheets_spreadsheet_id === s.id) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  } catch(e) {}
+
+  // Load Drive folders
+  try {
+    const r = await fetch('/integrations/drive/folders');
+    const d = await r.json();
+    const sel = $('setDriveSelect');
+    sel.innerHTML = '<option value="">Select a folder...</option>';
+    for (const f of d.folders || []) {
+      const opt = document.createElement('option');
+      opt.value = f.id; opt.textContent = f.name;
+      if (settings?.drive_folder_id === f.id) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  } catch(e) {}
+}
+
+// Google connect
+$('googleConnectBtn').addEventListener('click', () => {
+  const popup = window.open('/auth/google', 'google_auth', 'width=500,height=600');
+  window.addEventListener('message', async (e) => {
+    if (e.data === 'google_connected') {
+      const s = (await (await fetch('/settings')).json());
+      showGoogleConnected(s);
+    }
+  }, { once: true });
+});
+
+// Google disconnect
+$('googleDisconnect').addEventListener('click', async () => {
+  await fetch('/auth/google/disconnect', { method: 'POST' });
+  $('googleNotConnected').style.display = 'block';
+  $('googleConnected').style.display = 'none';
+  $('sheetsSection').style.display = 'none';
+  $('driveSection').style.display = 'none';
+});
+
+$('setClose').addEventListener('click', closeSet);
+$('setOverlay').addEventListener('click', closeSet);
+function closeSet() {
+  $('setPanel').classList.remove('on');
+  setTimeout(() => $('setOverlay').classList.remove('on'), 250);
+}
+
+// Toggles
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('on'));
+});
+function setToggle(id, val) { val ? $(id).classList.add('on') : $(id).classList.remove('on'); }
+function getToggle(id) { return $(id).classList.contains('on'); }
+
+// Save
+$('setSave').addEventListener('click', async () => {
+  try {
+    const r = await fetch('/settings', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        webhook_url: $('setWebhookUrl').value,
+        webhook_enabled: getToggle('setWebhookOn'),
+        sheets_spreadsheet_id: $('setSheetsSelect')?.value || '',
+        sheets_enabled: getToggle('setSheetsOn'),
+        drive_folder_id: $('setDriveSelect')?.value || '',
+        drive_enabled: getToggle('setDriveOn'),
+      }),
+    });
+    if (r.ok) {
+      $('setSaveStatus').textContent = 'Saved';
+      $('setSaveStatus').className = 'set-status';
+      setTimeout(() => $('setSaveStatus').textContent = '', 2000);
+    }
+  } catch(e) {
+    $('setSaveStatus').textContent = 'Error: ' + e.message;
+    $('setSaveStatus').className = 'set-status err';
+  }
+});
+
+// Test webhook
+$('setWebhookTest').addEventListener('click', async () => {
+  $('setWebhookStatus').textContent = 'Sending...';
+  try {
+    const r = await fetch('/integrations/webhook/test', { method: 'POST' });
+    const d = await r.json();
+    $('setWebhookStatus').textContent = d.delivered ? 'Delivered!' : 'Failed to deliver';
+    $('setWebhookStatus').className = 'set-status' + (d.delivered ? '' : ' err');
+  } catch(e) {
+    $('setWebhookStatus').textContent = 'Error';
+    $('setWebhookStatus').className = 'set-status err';
+  }
+});
+
+// Drive sync
+$('setDriveSync').addEventListener('click', async () => {
+  $('setDriveStatus').textContent = 'Syncing...';
+  try {
+    const r = await fetch('/integrations/drive/sync', { method: 'POST' });
+    const d = await r.json();
+    $('setDriveStatus').textContent = `Synced: ${d.count} files`;
+    $('setDriveStatus').className = 'set-status';
+  } catch(e) {
+    $('setDriveStatus').textContent = 'Error: ' + e.message;
+    $('setDriveStatus').className = 'set-status err';
+  }
+});
+</script>
+</body>
+</html>
