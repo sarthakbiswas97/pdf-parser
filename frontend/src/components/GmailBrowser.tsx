@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { X, Mail, Paperclip, FileText, Search, Loader2, CalendarRange } from "lucide-react";
+import { X, Mail, FileText, Search, Loader2, CalendarRange } from "lucide-react";
 import { listGmailAttachments, getGoogleStatus, openGoogleAuth } from "../lib/api";
 import type { GmailEmail } from "../lib/api";
 

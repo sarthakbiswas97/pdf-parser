@@ -108,7 +108,7 @@ export async function getGoogleStatus(): Promise<{ connected: boolean }> {
 
 export function openGoogleAuth(): Promise<boolean> {
   return new Promise((resolve) => {
-    const popup = window.open(`${API}/auth/google`, "google_auth", "width=500,height=600");
+    window.open(`${API}/auth/google`, "google_auth", "width=500,height=600");
     const handler = (e: MessageEvent) => {
       if (e.data === "google_connected") {
         resolve(true);

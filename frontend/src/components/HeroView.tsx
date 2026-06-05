@@ -1,5 +1,5 @@
 import { UploadBar } from "./UploadBar";
-import { HardDrive, Mail, Upload, Sparkles, FileText, MessageSquare, Inbox } from "lucide-react";
+import { HardDrive, Mail, Upload, Sparkles, MessageSquare, Inbox } from "lucide-react";
 
 interface Props {
   onFile: (file: File) => void;
