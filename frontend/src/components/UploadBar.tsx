@@ -21,11 +21,11 @@ export function UploadBar({ onFile, onBatch }: Props) {
 
   return (
     <div
-      className={`group flex w-full cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-5 py-4 transition-all ${
+      className={`group flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border px-6 py-8 transition-all duration-200 ${
         dragOver
-          ? "border-green/40 bg-green/5"
+          ? "border-green/30 bg-green/[0.04]"
           : fileName
-            ? "border-green/30 bg-green/5"
+            ? "border-green/20 bg-green/[0.03]"
             : "border-border bg-surface hover:border-border-active hover:bg-surface-2"
       }`}
       onClick={() => inputRef.current?.click()}
@@ -39,23 +39,21 @@ export function UploadBar({ onFile, onBatch }: Props) {
         else if (pdfs.length > 1 && onBatch) onBatch(pdfs);
       }}
     >
-      {fileName ? (
-        <CheckCircle size={20} className="shrink-0 text-green" />
-      ) : (
-        <FileUp size={20} className="shrink-0 text-text-faint transition-colors group-hover:text-text-muted" />
-      )}
-
-      <div className="flex flex-1 flex-col">
-        <span className={`text-sm ${fileName ? "font-medium text-text" : "text-text-muted"}`}>
-          {fileName || "Drop a PDF here or click to browse"}
-        </span>
-        {!fileName && (
-          <span className="text-[11px] text-text-faint">Supports any PDF up to 50MB</span>
-        )}
-        {fileName && (
-          <span className="text-[11px] text-green">Ready to parse</span>
+      <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-lg ${fileName ? "bg-green/10" : "bg-white/[0.05]"}`}>
+        {fileName ? (
+          <CheckCircle size={20} className="text-green" />
+        ) : (
+          <FileUp size={20} className="text-text-faint transition-colors group-hover:text-text-muted" />
         )}
       </div>
+
+      <span className={`text-[15px] ${fileName ? "font-medium text-text" : "text-text-muted"}`}>
+        {fileName || "Drop a PDF here or click to browse"}
+      </span>
+
+      <span className={`mt-1 text-[12px] ${fileName ? "text-green" : "text-text-faint"}`}>
+        {fileName ? "Ready to parse" : "Supports any PDF up to 50MB"}
+      </span>
 
       <input
         ref={inputRef}
@@ -69,7 +67,6 @@ export function UploadBar({ onFile, onBatch }: Props) {
           if (files.length === 1) {
             handleFile(files[0]);
           } else {
-            // Multiple files → batch
             const arr = Array.from(files).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"));
             if (arr.length === 1) handleFile(arr[0]);
             else if (arr.length > 1 && onBatch) onBatch(arr);
